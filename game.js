@@ -72,7 +72,27 @@ class Game {
         this.acquiredUpgrades = [];
         this.isSelectingUpgrade = false;
 
+        // Cached geometries and materials for performance
+        this.cachedGeometries = {};
+        this.cachedMaterials = {};
+
         this.init();
+    }
+
+    // Get or create cached geometry
+    getGeometry(key, createFn) {
+        if (!this.cachedGeometries[key]) {
+            this.cachedGeometries[key] = createFn();
+        }
+        return this.cachedGeometries[key];
+    }
+
+    // Get or create cached material
+    getMaterial(key, createFn) {
+        if (!this.cachedMaterials[key]) {
+            this.cachedMaterials[key] = createFn();
+        }
+        return this.cachedMaterials[key];
     }
 
     initUpgrades() {
@@ -591,25 +611,33 @@ class Game {
     }
 
     createSpawnEffect(position) {
-        for (let i = 0; i < 20; i++) {
-            const angle = (i / 20) * Math.PI * 2;
+        for (let i = 0; i < 8; i++) { // Reduced from 20 to 8
+            const angle = (i / 8) * Math.PI * 2;
             const vel = new THREE.Vector3(
                 Math.cos(angle) * 5,
                 2 + Math.random() * 3,
                 Math.sin(angle) * 5
             );
-            this.createParticle(position.clone(), vel, 0xff0044, 0.5);
+            this.createParticle(position.clone(), vel, 0xff0044, 0.4);
         }
     }
 
     createParticle(position, velocity, color, life) {
-        const geometry = new THREE.SphereGeometry(0.1);
-        const material = new THREE.MeshBasicMaterial({
-            color,
-            transparent: true,
-            opacity: 1
-        });
-        const mesh = new THREE.Mesh(geometry, material);
+        // Limit max particles for performance
+        if (this.particles.length > 150) return;
+
+        // Use cached geometry
+        const geometry = this.getGeometry('particle', () =>
+            new THREE.SphereGeometry(0.1, 4, 3) // Low-poly particle
+        );
+
+        // Cache materials by color
+        const matKey = `particle_${color.toString(16)}`;
+        const material = this.getMaterial(matKey, () =>
+            new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 })
+        );
+
+        const mesh = new THREE.Mesh(geometry, material.clone()); // Clone for opacity animation
         mesh.position.copy(position);
         this.scene.add(mesh);
 
@@ -621,36 +649,38 @@ class Game {
         });
     }
 
-    // Create bullet with trail
+    // Create bullet with trail (optimized)
     createBullet(position, velocity, color, isEnemy = false, bulletType = 'standard') {
-        const geometry = new THREE.SphereGeometry(isEnemy ? 0.2 : 0.15);
-        const material = new THREE.MeshBasicMaterial({
-            color,
-            transparent: true,
-            opacity: 0.9
-        });
+        // Use cached geometry
+        const geoKey = isEnemy ? 'bulletEnemy' : 'bulletPlayer';
+        const geometry = this.getGeometry(geoKey, () =>
+            new THREE.SphereGeometry(isEnemy ? 0.2 : 0.15, 6, 4) // Reduced segments
+        );
+
+        // Create material (can't fully cache due to different colors, but reuse where possible)
+        const matKey = `bullet_${color.toString(16)}`;
+        const material = this.getMaterial(matKey, () =>
+            new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
+        );
+
         const mesh = new THREE.Mesh(geometry, material);
         mesh.position.copy(position);
         this.scene.add(mesh);
 
-        // Point light for glow
-        const light = new THREE.PointLight(color, 0.5, 5);
-        mesh.add(light);
+        // Simplified trail (fewer points, no per-bullet geometry allocation)
+        const trailMatKey = `trail_${color.toString(16)}`;
+        const trailMaterial = this.getMaterial(trailMatKey, () =>
+            new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.5 })
+        );
 
-        // Trail
         const trailGeometry = new THREE.BufferGeometry();
-        const trailPositions = new Float32Array(30 * 3); // 30 points
-        for (let i = 0; i < 30; i++) {
+        const trailPositions = new Float32Array(6 * 3); // Reduced from 30 to 6 points
+        for (let i = 0; i < 6; i++) {
             trailPositions[i * 3] = position.x;
             trailPositions[i * 3 + 1] = position.y;
             trailPositions[i * 3 + 2] = position.z;
         }
         trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
-        const trailMaterial = new THREE.LineBasicMaterial({
-            color,
-            transparent: true,
-            opacity: 0.6
-        });
         const trail = new THREE.Line(trailGeometry, trailMaterial);
         this.scene.add(trail);
 
@@ -837,8 +867,8 @@ class Game {
         );
         this.enemyBullets.push(homingBullet);
 
-        // Particle burst for dramatic effect
-        for (let i = 0; i < 10; i++) {
+        // Particle burst for dramatic effect (reduced)
+        for (let i = 0; i < 5; i++) {
             this.createParticle(
                 enemy.mesh.position.clone(),
                 new THREE.Vector3(
@@ -909,10 +939,10 @@ class Game {
             life: 0.2
         });
 
-        // Crackling particles along beam
-        for (let i = 0; i < 20; i++) {
+        // Crackling particles along beam (reduced)
+        for (let i = 0; i < 8; i++) {
             const t = Math.random();
-            const pos = start.clone().lerp(end, t);
+            const pos = start.clone().lerp(end, t * 0.5); // Only near start
             pos.x += (Math.random() - 0.5) * 0.5;
             pos.y += (Math.random() - 0.5) * 0.5;
             pos.z += (Math.random() - 0.5) * 0.5;
@@ -925,7 +955,7 @@ class Game {
                     (Math.random() - 0.5) * 5
                 ),
                 0x00ffff,
-                0.3
+                0.25
             );
         }
 
@@ -1143,7 +1173,7 @@ class Game {
                 if (bullet.mesh.position.distanceTo(enemy.mesh.position) < 1.2) {
                     enemy.health -= bullet.damage;
 
-                    for (let k = 0; k < 5; k++) {
+                    for (let k = 0; k < 3; k++) { // Reduced hit particles
                         this.createParticle(
                             bullet.mesh.position.clone(),
                             new THREE.Vector3(
@@ -1152,7 +1182,7 @@ class Game {
                                 (Math.random() - 0.5) * 10
                             ),
                             enemy.mesh.material.color.getHex(),
-                            0.3
+                            0.25
                         );
                     }
 
@@ -1184,8 +1214,8 @@ class Game {
                 bullet.homingDelay -= gameDt;
                 if (bullet.homingDelay <= 0) {
                     bullet.homingActivated = true;
-                    // Visual burst when homing activates
-                    for (let k = 0; k < 8; k++) {
+                    // Visual burst when homing activates (reduced)
+                    for (let k = 0; k < 4; k++) {
                         this.createParticle(
                             bullet.mesh.position.clone(),
                             new THREE.Vector3(
@@ -1209,8 +1239,8 @@ class Game {
                 toPlayer.subVectors(this.player.position, bullet.mesh.position).normalize();
                 bullet.velocity.lerp(toPlayer.multiplyScalar(bullet.velocity.length()), bullet.homingStrength * gameDt * 60);
 
-                // Emit particles for homing bullets
-                if (Math.random() < 0.3) {
+                // Emit particles for homing bullets (reduced rate)
+                if (Math.random() < 0.1) {
                     this.createParticle(
                         bullet.mesh.position.clone(),
                         new THREE.Vector3(
@@ -1244,8 +1274,8 @@ class Game {
                         this.scene.remove(playerBullet.trail);
                         this.bullets.splice(j, 1);
 
-                        // Explosion effect
-                        for (let k = 0; k < 15; k++) {
+                        // Explosion effect (reduced)
+                        for (let k = 0; k < 6; k++) {
                             this.createParticle(
                                 bullet.mesh.position.clone(),
                                 new THREE.Vector3(
@@ -1254,7 +1284,7 @@ class Game {
                                     (Math.random() - 0.5) * 10
                                 ),
                                 0xff00ff,
-                                0.4
+                                0.3
                             );
                         }
 
@@ -1287,15 +1317,22 @@ class Game {
     }
 
     updateBulletTrail(bullet) {
-        // Store position history
+        // Store position history (reduced from 10 to 5)
         bullet.trailPositions.unshift(bullet.mesh.position.clone());
-        if (bullet.trailPositions.length > 10) {
+        if (bullet.trailPositions.length > 5) {
             bullet.trailPositions.pop();
         }
 
         // Update trail geometry
         if (bullet.trailPositions.length >= 2) {
-            bullet.trail.geometry.setFromPoints(bullet.trailPositions);
+            const positions = bullet.trail.geometry.attributes.position.array;
+            for (let i = 0; i < bullet.trailPositions.length && i < 6; i++) {
+                positions[i * 3] = bullet.trailPositions[i].x;
+                positions[i * 3 + 1] = bullet.trailPositions[i].y;
+                positions[i * 3 + 2] = bullet.trailPositions[i].z;
+            }
+            bullet.trail.geometry.attributes.position.needsUpdate = true;
+            bullet.trail.geometry.setDrawRange(0, bullet.trailPositions.length);
         }
     }
 
@@ -1313,7 +1350,7 @@ class Game {
     }
 
     destroyEnemy(enemy, index) {
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < 12; i++) { // Reduced from 30 to 12
             this.createParticle(
                 enemy.mesh.position.clone(),
                 new THREE.Vector3(
@@ -1322,7 +1359,7 @@ class Game {
                     (Math.random() - 0.5) * 15
                 ),
                 enemy.mesh.material.color.getHex(),
-                0.5 + Math.random() * 0.5
+                0.4 + Math.random() * 0.3
             );
         }
 
