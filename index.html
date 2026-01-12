@@ -335,6 +335,79 @@
         .time-slow {
             box-shadow: inset 0 0 100px rgba(0, 255, 255, 0.3);
         }
+
+        /* Upgrade Selection Screen */
+        #upgrade-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            pointer-events: auto;
+            z-index: 100;
+        }
+
+        #upgrade-screen h2 {
+            font-size: 36px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 10px;
+            color: #00ffff;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+
+        #upgrade-screen .subtitle {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 40px;
+            letter-spacing: 3px;
+        }
+
+        #upgrade-options {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 900px;
+        }
+
+        .upgrade-card {
+            width: 250px;
+            padding: 30px;
+            background: rgba(0, 255, 255, 0.05);
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .upgrade-card:hover {
+            background: rgba(0, 255, 255, 0.15);
+            border-color: #00ffff;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 40px rgba(0, 255, 255, 0.3);
+        }
+
+        .upgrade-card h3 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #00ffff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .upgrade-card p {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
@@ -378,6 +451,12 @@
                 <h1>Game Over</h1>
                 <div id="final-score">Final Score: 0</div>
                 <button id="restart-btn">Play Again</button>
+            </div>
+
+            <div id="upgrade-screen">
+                <h2>Wave Complete</h2>
+                <div class="subtitle">Choose an upgrade</div>
+                <div id="upgrade-options"></div>
             </div>
 
             <div id="start-screen">
