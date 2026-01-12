@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DRIFT - Time-Dilation Arena Shooter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: #000;
+            font-family: 'Courier New', monospace;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(0, 255, 255, 0.8);
+            border-radius: 50%;
+            transition: all 0.1s ease;
+        }
+
+        #crosshair::before,
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(0, 255, 255, 0.8);
+        }
+
+        #crosshair::before {
+            width: 2px;
+            height: 8px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #crosshair::after {
+            width: 8px;
+            height: 2px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #time-indicator {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #time-bar-container {
+            width: 300px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        #time-bar {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #00ffff, #ff00ff);
+            transition: width 0.1s ease;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+
+        #time-label {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+
+        #stats {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            font-size: 14px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        #stats div {
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .stat-value {
+            color: #00ffff;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        #health-bar-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 200px;
+        }
+
+        #health-label {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+        }
+
+        #health-bar-bg {
+            width: 100%;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        #health-bar {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #ff0044, #ff4400);
+            transition: width 0.3s ease;
+            box-shadow: 0 0 15px rgba(255, 0, 68, 0.5);
+        }
+
+        #wave-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 48px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 10px;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            text-shadow: 0 0 30px rgba(0, 255, 255, 0.8);
+        }
+
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            pointer-events: auto;
+        }
+
+        #game-over h1 {
+            font-size: 72px;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 15px;
+            color: #ff0044;
+            text-shadow: 0 0 30px rgba(255, 0, 68, 0.8);
+        }
+
+        #final-score {
+            font-size: 24px;
+            margin-bottom: 40px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        #restart-btn {
+            padding: 15px 40px;
+            font-size: 18px;
+            font-family: 'Courier New', monospace;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            background: transparent;
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #restart-btn:hover {
+            background: #00ffff;
+            color: #000;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+        }
+
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            pointer-events: auto;
+        }
+
+        #start-screen h1 {
+            font-size: 120px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 30px;
+            background: linear-gradient(90deg, #00ffff, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: none;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.5)); }
+            to { filter: drop-shadow(0 0 40px rgba(255, 0, 255, 0.5)); }
+        }
+
+        #start-screen .subtitle {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.5);
+            letter-spacing: 5px;
+            margin-bottom: 60px;
+        }
+
+        #start-screen .instructions {
+            max-width: 500px;
+            text-align: center;
+            margin-bottom: 40px;
+            line-height: 2;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        #start-screen .instructions strong {
+            color: #00ffff;
+        }
+
+        #start-screen .controls {
+            display: flex;
+            gap: 40px;
+            margin-bottom: 60px;
+        }
+
+        #start-screen .control {
+            text-align: center;
+        }
+
+        #start-screen .control-key {
+            display: inline-block;
+            padding: 10px 15px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #00ffff;
+        }
+
+        #start-screen .control-desc {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        #start-btn {
+            padding: 20px 60px;
+            font-size: 20px;
+            font-family: 'Courier New', monospace;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            background: transparent;
+            border: 2px solid #00ffff;
+            color: #00ffff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        #start-btn:hover {
+            background: #00ffff;
+            color: #000;
+            box-shadow: 0 0 50px rgba(0, 255, 255, 0.5);
+        }
+
+        .vignette {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.4) 100%);
+        }
+
+        .time-slow {
+            box-shadow: inset 0 0 100px rgba(0, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="ui">
+            <div class="vignette" id="vignette"></div>
+            <div id="crosshair"></div>
+
+            <div id="time-indicator">
+                <div id="time-label">Time Flow</div>
+                <div id="time-bar-container">
+                    <div id="time-bar"></div>
+                </div>
+            </div>
+
+            <div id="stats">
+                <div>
+                    <div class="stat-label">Score</div>
+                    <div class="stat-value" id="score">0</div>
+                </div>
+                <div>
+                    <div class="stat-label">Wave</div>
+                    <div class="stat-value" id="wave">1</div>
+                </div>
+                <div>
+                    <div class="stat-label">Kills</div>
+                    <div class="stat-value" id="kills">0</div>
+                </div>
+            </div>
+
+            <div id="health-bar-container">
+                <div id="health-label">Shield</div>
+                <div id="health-bar-bg">
+                    <div id="health-bar"></div>
+                </div>
+            </div>
+
+            <div id="wave-indicator"></div>
+
+            <div id="game-over">
+                <h1>Game Over</h1>
+                <div id="final-score">Final Score: 0</div>
+                <button id="restart-btn">Play Again</button>
+            </div>
+
+            <div id="start-screen">
+                <h1>DRIFT</h1>
+                <div class="subtitle">Time-Dilation Arena Shooter</div>
+                <div class="instructions">
+                    <strong>Your mouse speed controls time itself.</strong><br>
+                    Move slowly for bullet-time. Move fast for real-time chaos.<br>
+                    Choreograph your survival.
+                </div>
+                <div class="controls">
+                    <div class="control">
+                        <div class="control-key">WASD</div>
+                        <div class="control-desc">Move</div>
+                    </div>
+                    <div class="control">
+                        <div class="control-key">MOUSE</div>
+                        <div class="control-desc">Aim / Time Control</div>
+                    </div>
+                    <div class="control">
+                        <div class="control-key">CLICK</div>
+                        <div class="control-desc">Shoot</div>
+                    </div>
+                    <div class="control">
+                        <div class="control-key">SPACE</div>
+                        <div class="control-desc">Dash</div>
+                    </div>
+                </div>
+                <button id="start-btn">Enter the Arena</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
